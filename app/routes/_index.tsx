@@ -26,18 +26,21 @@ export default function Index() {
 
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8", padding: "2rem" }}>
-      <h1>Task List</h1>
+      <h1>🚀 My Awesome Task Manager</h1>
+      <p style={{ color: "#666", marginBottom: "1.5rem" }}>
+        Built with React Router + Convex - Real-time updates across all clients!
+      </p>
       
       <form onSubmit={handleSubmit} style={{ marginBottom: "2rem" }}>
         <input
           type="text"
           value={newTaskText}
           onChange={(e) => setNewTaskText(e.target.value)}
-          placeholder="Add a new task..."
+          placeholder="What needs to be done?"
           style={{ padding: "0.5rem", width: "300px", marginRight: "0.5rem" }}
         />
         <button type="submit" style={{ padding: "0.5rem 1rem" }}>
-          Add Task
+          ➕ Add Task
         </button>
       </form>
 
