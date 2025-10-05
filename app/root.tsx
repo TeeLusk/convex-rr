@@ -42,7 +42,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        <ConvexProvider client={convex}>{children}</ConvexProvider>
+        <ConvexProvider client={convex}>
+          <nav style={{ backgroundColor: "#0070f3", padding: "1rem", marginBottom: "2rem" }}>
+            <div style={{ maxWidth: "1400px", margin: "0 auto", display: "flex", gap: "2rem" }}>
+              <a href="/" style={{ color: "white", textDecoration: "none", fontWeight: "bold" }}>
+                🏠 Home
+              </a>
+              <a href="/products" style={{ color: "white", textDecoration: "none", fontWeight: "bold" }}>
+                📦 Products
+              </a>
+            </div>
+          </nav>
+          {children}
+        </ConvexProvider>
         <ScrollRestoration />
         <Scripts />
       </body>
