@@ -1,6 +1,4 @@
 {
   "buildCommand": "pnpm run build",
-  "installCommand": "pnpm install",
-  "framework": null,
-  "outputDirectory": "build/client"
+  "installCommand": "pnpm install"
 }
