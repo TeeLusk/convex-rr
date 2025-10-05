@@ -41,16 +41,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links />
       </head>
-      <body>
+      <body className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
         <ConvexProvider client={convex}>
-          <nav style={{ backgroundColor: "#0070f3", padding: "1rem", marginBottom: "2rem" }}>
-            <div style={{ maxWidth: "1400px", margin: "0 auto", display: "flex", gap: "2rem" }}>
-              <a href="/" style={{ color: "white", textDecoration: "none", fontWeight: "bold" }}>
-                🏠 Home
-              </a>
-              <a href="/products" style={{ color: "white", textDecoration: "none", fontWeight: "bold" }}>
-                📦 Products
-              </a>
+          <nav className="bg-blue-600 dark:bg-blue-700 border-b border-blue-700 dark:border-blue-800">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center gap-8 h-16">
+                <a href="/" className="text-white hover:text-blue-100 font-semibold transition-colors">
+                  🏠 Home
+                </a>
+                <a href="/products" className="text-white hover:text-blue-100 font-semibold transition-colors">
+                  📦 Products
+                </a>
+              </div>
             </div>
           </nav>
           {children}
