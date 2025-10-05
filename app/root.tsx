@@ -1,12 +1,19 @@
 import {
+  data,
   isRouteErrorResponse,
   Links,
   Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLoaderData,
 } from "react-router";
-
+import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { useState } from "react";
+export async function loader() {
+  const CONVEX_URL = process.env["CONVEX_URL"]!;
+  return data({ ENV: { CONVEX_URL } });
+}
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -24,6 +31,8 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const { ENV } = useLoaderData<typeof loader>();
+  const [convex] = useState(() => new ConvexReactClient(ENV.CONVEX_URL));
   return (
     <html lang="en">
       <head>
@@ -33,7 +42,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        {children}
+        <ConvexProvider client={convex}>{children}</ConvexProvider>
         <ScrollRestoration />
         <Scripts />
       </body>

@@ -1,0 +1,14 @@
+[build]
+  command = "npm run build"
+  publish = "build/client"
+
+[[plugins]]
+  package = "@netlify/plugin-functions"
+
+[functions]
+  directory = "build/server"
+
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/server/:splat"
+  status = 200
