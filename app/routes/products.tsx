@@ -1,7 +1,9 @@
 import type { MetaFunction } from "react-router";
 import { api } from "convex/_generated/api";
-import { useQuery, useMutation } from "convex/react";
-import { useState } from "react";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { useMutation } from "convex/react";
+import { useState, Suspense } from "react";
 import type { Id } from "convex/_generated/dataModel";
 import {
   WEIGHT_UNITS,
@@ -29,11 +31,131 @@ const PRODUCT_TYPES = [
   { value: "other", label: "Other" },
 ] as const;
 
+function ProductList({
+  onEdit,
+  onDelete,
+}: {
+  onEdit: (product: any) => void;
+  onDelete: (id: Id<"products">) => void;
+}) {
+  const { data: products } = useSuspenseQuery(
+    convexQuery(api.products.list, {})
+  );
+  const toggleActive = useMutation(api.products.toggleActive);
+
+  if (!products || products.length === 0) {
+    return (
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-8 text-center">
+        <p className="text-gray-500 dark:text-gray-400">
+          No products yet. Add your first product above!
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+            <tr>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                SKU
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                Title
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                Type
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                Weight
+              </th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">
+                Dimensions
+              </th>
+              <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900 dark:text-white">
+                Status
+              </th>
+              <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900 dark:text-white">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            {products.map((product) => (
+              <tr
+                key={product._id}
+                className="hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                <td className="px-4 py-3 text-sm font-mono text-gray-900 dark:text-white">
+                  {product.sku}
+                </td>
+                <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                  {product.title}
+                </td>
+                <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 capitalize">
+                  {product.productType}
+                </td>
+                <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                  {formatWeight(product.weight, product.weightUnit)}
+                </td>
+                <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                  {formatDimensions(
+                    product.length,
+                    product.width,
+                    product.height,
+                    product.dimensionUnit
+                  )}
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <span
+                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      product.active
+                        ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
+                        : "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"
+                    }`}
+                  >
+                    {product.active ? "Active" : "Inactive"}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onEdit(product)}
+                      className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleActive({ id: product._id })}
+                      className="px-3 py-1 text-sm bg-yellow-600 hover:bg-yellow-700 text-white rounded transition-colors"
+                    >
+                      Toggle
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDelete(product._id)}
+                      className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function Products() {
-  const products = useQuery(api.products.list, {});
   const createProduct = useMutation(api.products.create);
   const updateProduct = useMutation(api.products.update);
-  const toggleActive = useMutation(api.products.toggleActive);
   const removeProduct = useMutation(api.products.remove);
 
   const [showForm, setShowForm] = useState(false);
@@ -88,7 +210,14 @@ export default function Products() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.sku || !formData.title || !formData.weight || !formData.length || !formData.width || !formData.height) {
+    if (
+      !formData.sku ||
+      !formData.title ||
+      !formData.weight ||
+      !formData.length ||
+      !formData.width ||
+      !formData.height
+    ) {
       alert("Please fill in all required fields");
       return;
     }
@@ -111,8 +240,12 @@ export default function Products() {
         lotTracked: formData.lotTracked,
         serialTracked: formData.serialTracked,
         expirationTracked: formData.expirationTracked,
-        minStockLevel: formData.minStockLevel ? parseInt(formData.minStockLevel) : undefined,
-        maxStockLevel: formData.maxStockLevel ? parseInt(formData.maxStockLevel) : undefined,
+        minStockLevel: formData.minStockLevel
+          ? parseInt(formData.minStockLevel)
+          : undefined,
+        maxStockLevel: formData.maxStockLevel
+          ? parseInt(formData.maxStockLevel)
+          : undefined,
       };
 
       if (editingId) {
@@ -158,13 +291,17 @@ export default function Products() {
     }
   };
 
-  const inputClass = "w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500";
-  const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1";
+  const inputClass =
+    "w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const labelClass =
+    "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1";
 
   return (
     <div className="max-w-7xl mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Product Manager</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          Product Manager
+        </h1>
         <button
           onClick={() => setShowForm(!showForm)}
           className={`px-6 py-2 font-medium rounded-lg transition-colors ${
@@ -192,7 +329,9 @@ export default function Products() {
               <input
                 type="text"
                 value={formData.sku}
-                onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, sku: e.target.value })
+                }
                 className={inputClass}
                 required
               />
@@ -203,7 +342,9 @@ export default function Products() {
               <input
                 type="text"
                 value={formData.upc}
-                onChange={(e) => setFormData({ ...formData, upc: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, upc: e.target.value })
+                }
                 className={inputClass}
               />
             </div>
@@ -214,7 +355,9 @@ export default function Products() {
             <input
               type="text"
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, title: e.target.value })
+              }
               className={inputClass}
               required
             />
@@ -224,7 +367,9 @@ export default function Products() {
             <label className={labelClass}>Description</label>
             <textarea
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
               className={`${inputClass} min-h-[80px]`}
             />
           </div>
@@ -233,7 +378,9 @@ export default function Products() {
             <label className={labelClass}>Product Type *</label>
             <select
               value={formData.productType}
-              onChange={(e) => setFormData({ ...formData, productType: e.target.value as any })}
+              onChange={(e) =>
+                setFormData({ ...formData, productType: e.target.value as any })
+              }
               className={inputClass}
               required
             >
@@ -245,7 +392,9 @@ export default function Products() {
             </select>
           </div>
 
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Physical Dimensions</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Physical Dimensions
+          </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="md:col-span-2">
@@ -254,7 +403,9 @@ export default function Products() {
                 type="number"
                 step="0.01"
                 value={formData.weight}
-                onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, weight: e.target.value })
+                }
                 className={inputClass}
                 required
               />
@@ -263,7 +414,12 @@ export default function Products() {
               <label className={labelClass}>Unit</label>
               <select
                 value={formData.weightUnit}
-                onChange={(e) => setFormData({ ...formData, weightUnit: e.target.value as WeightUnit })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    weightUnit: e.target.value as WeightUnit,
+                  })
+                }
                 className={inputClass}
               >
                 {WEIGHT_UNITS.map((unit) => (
@@ -282,7 +438,9 @@ export default function Products() {
                 type="number"
                 step="0.01"
                 value={formData.length}
-                onChange={(e) => setFormData({ ...formData, length: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, length: e.target.value })
+                }
                 className={inputClass}
                 required
               />
@@ -293,7 +451,9 @@ export default function Products() {
                 type="number"
                 step="0.01"
                 value={formData.width}
-                onChange={(e) => setFormData({ ...formData, width: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, width: e.target.value })
+                }
                 className={inputClass}
                 required
               />
@@ -304,7 +464,9 @@ export default function Products() {
                 type="number"
                 step="0.01"
                 value={formData.height}
-                onChange={(e) => setFormData({ ...formData, height: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, height: e.target.value })
+                }
                 className={inputClass}
                 required
               />
@@ -313,7 +475,12 @@ export default function Products() {
               <label className={labelClass}>Unit</label>
               <select
                 value={formData.dimensionUnit}
-                onChange={(e) => setFormData({ ...formData, dimensionUnit: e.target.value as DimensionUnit })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    dimensionUnit: e.target.value as DimensionUnit,
+                  })
+                }
                 className={inputClass}
               >
                 {DIMENSION_UNITS.map((unit) => (
@@ -325,14 +492,18 @@ export default function Products() {
             </div>
           </div>
 
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Tracking Options</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Tracking Options
+          </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <label className="flex items-center gap-2 text-gray-700 dark:text-gray-300 cursor-pointer">
               <input
                 type="checkbox"
                 checked={formData.lotTracked}
-                onChange={(e) => setFormData({ ...formData, lotTracked: e.target.checked })}
+                onChange={(e) =>
+                  setFormData({ ...formData, lotTracked: e.target.checked })
+                }
                 className="w-4 h-4 text-blue-600 rounded border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
               />
               Lot/Batch Tracked
@@ -341,7 +512,9 @@ export default function Products() {
               <input
                 type="checkbox"
                 checked={formData.serialTracked}
-                onChange={(e) => setFormData({ ...formData, serialTracked: e.target.checked })}
+                onChange={(e) =>
+                  setFormData({ ...formData, serialTracked: e.target.checked })
+                }
                 className="w-4 h-4 text-blue-600 rounded border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
               />
               Serial Tracked
@@ -350,7 +523,12 @@ export default function Products() {
               <input
                 type="checkbox"
                 checked={formData.expirationTracked}
-                onChange={(e) => setFormData({ ...formData, expirationTracked: e.target.checked })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    expirationTracked: e.target.checked,
+                  })
+                }
                 className="w-4 h-4 text-blue-600 rounded border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500"
               />
               Expiration Tracked
@@ -376,80 +554,20 @@ export default function Products() {
       )}
 
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Products</h2>
-        {products === undefined ? (
-          <p className="text-gray-500 dark:text-gray-400">Loading products...</p>
-        ) : products.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-8 text-center">
-            <p className="text-gray-500 dark:text-gray-400">No products yet. Add your first product above!</p>
-          </div>
-        ) : (
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">SKU</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Title</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Type</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Weight</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-white">Dimensions</th>
-                    <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900 dark:text-white">Status</th>
-                    <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900 dark:text-white">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {products.map((product) => (
-                    <tr key={product._id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-4 py-3 text-sm font-mono text-gray-900 dark:text-white">{product.sku}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{product.title}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 capitalize">{product.productType}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                        {formatWeight(product.weight, product.weightUnit)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                        {formatDimensions(product.length, product.width, product.height, product.dimensionUnit)}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            product.active
-                              ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
-                              : "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"
-                          }`}
-                        >
-                          {product.active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-center gap-2">
-                          <button
-                            onClick={() => handleEdit(product)}
-                            className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => toggleActive({ id: product._id })}
-                            className="px-3 py-1 text-sm bg-yellow-600 hover:bg-yellow-700 text-white rounded transition-colors"
-                          >
-                            Toggle
-                          </button>
-                          <button
-                            onClick={() => handleDelete(product._id)}
-                            className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+          Products
+        </h2>
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center py-8">
+              <div className="text-gray-500 dark:text-gray-400">
+                Loading products...
+              </div>
             </div>
-          </div>
-        )}
+          }
+        >
+          <ProductList onEdit={handleEdit} onDelete={handleDelete} />
+        </Suspense>
       </div>
     </div>
   );

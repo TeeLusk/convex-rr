@@ -1,6 +1,7 @@
 import {
   data,
   isRouteErrorResponse,
+  Link,
   Links,
   Meta,
   Outlet,
@@ -9,6 +10,10 @@ import {
   useLoaderData,
 } from "react-router";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { ConvexQueryClient } from "@convex-dev/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { ConvexQueryCacheProvider } from "convex-helpers/react/cache";
 import { useState } from "react";
 export async function loader() {
   const CONVEX_URL = process.env["CONVEX_URL"]!;
@@ -31,8 +36,25 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { ENV } = useLoaderData<typeof loader>();
-  const [convex] = useState(() => new ConvexReactClient(ENV.CONVEX_URL));
+  const loaderData = useLoaderData<typeof loader>();
+  const convexUrl = loaderData?.ENV?.CONVEX_URL || "";
+  const [convex] = useState(() => new ConvexReactClient(convexUrl));
+  const [queryClient] = useState(() => {
+    const convexQueryClient = new ConvexQueryClient(convex);
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: {
+          queryKeyHashFn: convexQueryClient.hashFn(),
+          queryFn: convexQueryClient.queryFn(),
+          staleTime: Infinity, // Data is never stale with Convex's real-time updates
+          gcTime: 10000, // Keep cached queries for 10 seconds after last use
+        },
+      },
+    });
+    convexQueryClient.connect(client);
+    return client;
+  });
+
   return (
     <html lang="en">
       <head>
@@ -43,19 +65,30 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
         <ConvexProvider client={convex}>
-          <nav className="bg-blue-600 dark:bg-blue-700 border-b border-blue-700 dark:border-blue-800">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center gap-8 h-16">
-                <a href="/" className="text-white hover:text-blue-100 font-semibold transition-colors">
-                  🏠 Home
-                </a>
-                <a href="/products" className="text-white hover:text-blue-100 font-semibold transition-colors">
-                  📦 Products
-                </a>
-              </div>
-            </div>
-          </nav>
-          {children}
+          <ConvexQueryCacheProvider>
+            <QueryClientProvider client={queryClient}>
+              <nav className="bg-blue-600 dark:bg-blue-700 border-b border-blue-700 dark:border-blue-800">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                  <div className="flex items-center gap-8 h-16">
+                    <Link
+                      to="/"
+                      className="text-white hover:text-blue-100 font-semibold transition-colors"
+                    >
+                      🏠 Home
+                    </Link>
+                    <Link
+                      to="/products"
+                      className="text-white hover:text-blue-100 font-semibold transition-colors"
+                    >
+                      📦 Products
+                    </Link>
+                  </div>
+                </div>
+              </nav>
+              {children}
+              <ReactQueryDevtools initialIsOpen={false} />
+            </QueryClientProvider>
+          </ConvexQueryCacheProvider>
         </ConvexProvider>
         <ScrollRestoration />
         <Scripts />
